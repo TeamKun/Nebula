@@ -29,7 +29,7 @@ export abstract class ModuleStructure extends BaseModelStructure<Module> {
     protected untrackedFilePatterns: string[]          // List of glob patterns. 
     protected claritasResult!: ClaritasResult
 
-    private readonly linkRegex = /(.+\.[jJ][aA][rR])\.[jJ][sS][oO][nN]/
+    private readonly linkRegex = /(.+\.[lL][iI][nN][kK])\.[jJ][sS][oO][nN]/
 
     constructor(
         absoluteRoot: string,
