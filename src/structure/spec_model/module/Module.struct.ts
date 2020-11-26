@@ -95,8 +95,7 @@ export abstract class ModuleStructure extends BaseModelStructure<Module> {
 
     protected async parseModule(file: string, filePath: string, stats: Stats): Promise<Module> {
 
-        const linkResult = this.linkRegex.exec(file)
-        if (linkResult != null) {
+        if (this.linkRegex.test(file)) {
             return JSON.parse(await readFile(filePath, 'utf-8'))
         }
 
@@ -165,7 +164,7 @@ export abstract class ModuleStructure extends BaseModelStructure<Module> {
             this.claritasResult = await claritasExecutor.execute(
                 this.getClaritasType()!,
                 this.minecraftVersion,
-                claritasCandidates.map(entry => entry.filePath)
+                claritasCandidates.filter(entry => !this.linkRegex.test(entry.file)).map(entry => entry.filePath)
             )
 
             if(this.claritasResult == null) {
