@@ -188,11 +188,40 @@ export class ForgeGradle3Adapter extends ForgeResolver {
 
         if(this.generatedFiles != null && this.generatedFiles.length > 0) {
             // Run installer
-            return this.processWithInstaller(installerPath)
+            return this.processIncludeInstaller(installerPath)
         } else {
             // Installer not required
             return this.processWithoutInstaller(installerPath)
         }
+
+    }
+
+    private async processIncludeInstaller(installerPath: string): Promise<Module> {
+
+        const libRepo = this.repoStructure.getLibRepoStruct()
+        const forgeInstallerBuffer = await readFile(installerPath)
+        const forgeModule: Module = {
+            id: MavenUtil.mavenComponentsToIdentifier(
+                LibRepoStructure.FORGE_GROUP,
+                LibRepoStructure.FORGE_ARTIFACT,
+                this.artifactVersion, 'installer'
+            ),
+            name: 'Minecraft Forge (installer)',
+            type: Type.Forge,
+            artifact: this.generateArtifact(
+                forgeInstallerBuffer,
+                await lstat(installerPath),
+                libRepo.getArtifactUrlByComponents(
+                    this.baseUrl,
+                    LibRepoStructure.FORGE_GROUP,
+                    LibRepoStructure.FORGE_ARTIFACT,
+                    this.artifactVersion, 'installer'
+                )
+            ),
+            subModules: []
+        }
+
+        return forgeModule
 
     }
 
