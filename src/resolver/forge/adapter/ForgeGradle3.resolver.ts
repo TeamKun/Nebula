@@ -198,28 +198,30 @@ export class ForgeGradle3Adapter extends ForgeResolver {
 
     private async processWithInstaller(installerPath: string): Promise<Module> {
 
-        const workDir = this.repoStructure.getForgeDirectory(this.artifactVersion)
-        if (!await pathExists(workDir)) {
-            await mkdirs(workDir)
-
-            const workingInstaller = join(workDir, basename(installerPath))
-
-            await copy(installerPath, workingInstaller)
-
-            // Required for the installer to function.
-            await writeFile(join(workDir, 'launcher_profiles.json'), JSON.stringify({}))
-
-            ForgeGradle3Adapter.logger.debug('Spawning forge installer')
-
-            ForgeGradle3Adapter.logger.info('============== [ IMPORTANT ] ==============')
-            ForgeGradle3Adapter.logger.info('When the installer opens please set the client installation directory to:')
-            ForgeGradle3Adapter.logger.info(workDir)
-            ForgeGradle3Adapter.logger.info('===========================================')
-
-            await this.executeInstaller(workingInstaller, workDir)
-
-            ForgeGradle3Adapter.logger.debug('Installer finished, beginning processing..')
+        const workDir = this.repoStructure.getWorkDirectory()
+        if (await pathExists(workDir)) {
+            await remove(workDir)
         }
+
+        await mkdirs(workDir)
+
+        const workingInstaller = join(workDir, basename(installerPath))
+
+        await copy(installerPath, workingInstaller)
+
+        // Required for the installer to function.
+        await writeFile(join(workDir, 'launcher_profiles.json'), JSON.stringify({}))
+
+        ForgeGradle3Adapter.logger.debug('Spawning forge installer')
+
+        ForgeGradle3Adapter.logger.info('============== [ IMPORTANT ] ==============')
+        ForgeGradle3Adapter.logger.info('When the installer opens please set the client installation directory to:')
+        ForgeGradle3Adapter.logger.info(workDir)
+        ForgeGradle3Adapter.logger.info('===========================================')
+
+        await this.executeInstaller(workingInstaller, workDir)
+
+        ForgeGradle3Adapter.logger.debug('Installer finished, beginning processing..')
 
         ForgeGradle3Adapter.logger.debug('Processing Version Manifest')
         const versionManifestTuple = await this.processVersionManifest()
@@ -236,12 +238,14 @@ export class ForgeGradle3Adapter extends ForgeResolver {
 
         forgeModule.subModules = forgeModule.subModules?.concat(libs)
 
+        await remove(workDir)
+
         return forgeModule
 
     }
 
     private async processVersionManifest(): Promise<[VersionManifestFG3, Module]> {
-        const workDir = this.repoStructure.getForgeDirectory(this.artifactVersion)
+        const workDir = this.repoStructure.getWorkDirectory()
         const versionRepo = this.repoStructure.getVersionRepoStruct()
         const versionName = versionRepo.getFileName(this.minecraftVersion, this.forgeVersion)
         const versionManifestPath = join(workDir, 'versions', versionName, `${versionName}.json`)
@@ -265,14 +269,14 @@ export class ForgeGradle3Adapter extends ForgeResolver {
             this.forgeVersion
         )
 
-        await copy(versionManifestPath, destination, {overwrite: true})
+        await move(versionManifestPath, destination, {overwrite: true})
 
         return [versionManifest, versionManifestModule]
     }
 
     private async processForgeModule(versionManifest: VersionManifestFG3): Promise<Module> {
 
-        const libDir = join(this.repoStructure.getForgeDirectory(this.artifactVersion), 'libraries')
+        const libDir = join(this.repoStructure.getWorkDirectory(), 'libraries')
         
         if(this.wildcardsInUse) {
             if(this.wildcardsInUse.indexOf(ForgeGradle3Adapter.WILDCARD_MCP_VERSION) > -1) {
@@ -345,7 +349,7 @@ export class ForgeGradle3Adapter extends ForgeResolver {
                         _classifier
                     )
 
-                    await copy(targetLocalPath, destination, {overwrite: true})
+                    await move(targetLocalPath, destination, {overwrite: true})
 
                     located = true
                     break classifierLoop
@@ -369,7 +373,7 @@ export class ForgeGradle3Adapter extends ForgeResolver {
 
     private async processLibraries(manifest: VersionManifestFG3): Promise<Module[]> {
 
-        const libDir = join(this.repoStructure.getForgeDirectory(this.artifactVersion), 'libraries')
+        const libDir = join(this.repoStructure.getWorkDirectory(), 'libraries')
         const libRepo = this.repoStructure.getLibRepoStruct()
 
         const mdls: Module[] = []
@@ -412,7 +416,7 @@ export class ForgeGradle3Adapter extends ForgeResolver {
                     components.extension
                 )
 
-                await copy(targetLocalPath, destination, {overwrite: true})
+                await move(targetLocalPath, destination, {overwrite: true})
 
             }
         }
