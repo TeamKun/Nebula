@@ -216,7 +216,7 @@ export class ForgeGradle3Adapter extends ForgeResolver {
             ForgeGradle3Adapter.logger.info(workDir)
             ForgeGradle3Adapter.logger.info('===========================================')
 
-            await this.executeInstaller(workingInstaller)
+            await this.executeInstaller(workingInstaller, workDir)
 
             ForgeGradle3Adapter.logger.debug('Installer finished, beginning processing..')
         }
@@ -421,12 +421,19 @@ export class ForgeGradle3Adapter extends ForgeResolver {
 
     }
 
-    private executeInstaller(installerExec: string): Promise<void> {
+    private executeInstaller(installerExec: string, workDir: string): Promise<void> {
         return new Promise(resolve => {
+            const forgeWrapper = join(process.cwd(), 'libraries', 'java', 'ForgeCLI.jar')
             const fiLogger = LoggerUtil.getLogger('Forge Installer')
             const child = spawn(JavaUtil.getJavaExecutable(), [
                 '-jar',
-                installerExec
+                forgeWrapper,
+                '--installer',
+                installerExec,
+                '--target',
+                workDir,
+                '--forgeVersion',
+                this.forgeVersion,
             ], {
                 cwd: dirname(installerExec)
             })
