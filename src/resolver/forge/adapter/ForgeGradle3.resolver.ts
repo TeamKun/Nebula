@@ -465,8 +465,6 @@ export class ForgeGradle3Adapter extends ForgeResolver {
                 installerExec,
                 '--target',
                 workDir,
-                '--forgeVersion',
-                this.forgeVersion,
             ], {
                 cwd: dirname(installerExec)
             })
