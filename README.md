@@ -4,9 +4,10 @@ Generate a distribution.json for Helios. Documentation on this format can be fou
 
 ## Requirements
 
-* Node.js 14
+* Node.js 16
 * Java 8+ (https://adoptopenjdk.net/)
   * This is required to run the forge installer, process [XZ](https://tukaani.org/xz/format.html) files, and run bytecode analysis on mod files.
+  * Although 1.17 requires Java 16, the forge installer works with Java 8.
 
 
 ### Notes
@@ -22,7 +23,7 @@ Generate a distribution.json for Helios. Documentation on this format can be fou
 
 Example
 ```properties
-JAVA_EXECUTABLE=C:\Program Files\AdoptOpenJDK\jdk-8.0.232.09-hotspot\bin\java.exe
+JAVA_EXECUTABLE=C:\Program Files\Eclipse Foundation\jdk-17.0.0.35-hotspot\bin\java.exe
 ROOT=D:\TestRoot2
 BASE_URL=http://localhost:8080/
 HELIOS_DATA_FOLDER=C:\Users\user\AppData\Roaming\Helios Launcher
@@ -30,9 +31,11 @@ HELIOS_DATA_FOLDER=C:\Users\user\AppData\Roaming\Helios Launcher
 
 ## Usage
 
-Nebula is not complete. The following usage is tentative.
+Nebula is still being developed. Usage may change, but it has remained stable for some time now.
 
-#### TL;DR Usage
+#### TL;DR (Too Long; Didn't Read) Usage
+
+This is the barebones overall usage. Please read the rest of this document.
 
 * Follow the setup instructions above.
 * Run the `init root` command.
@@ -45,18 +48,28 @@ Nebula is not complete. The following usage is tentative.
 
 Commands will be documented here. You can run any command with the `--help` option to view more information.
 
-#### Command Usage
+### Command Usage
+
+This explains how to run the commands listed below. There are a few ways to run commands, pick your preferred method.
+
+Example: To run `init root`, you would do `npm run start -- init root`.
 
 *Recommended*
 
-* Run `npm run start -- <COMMAND>`
+* Run **`npm run start -- <COMMAND>`**
+  * *Why is this recommended? This command will compile the source code first.*
 
 *Other*
 
-* Build the project using `npm run build`
-* Run `node dist/index.js <COMMAND>`
+* Build the project using **`npm run build`**
+* Run **`node dist/index.js <COMMAND>`** OR **`npm run faststart -- <COMMAND>`**
+  * `faststart` is an alias to run the main file without building.
 
-*Note: If you modify any files, you will have to rebuild the project. npm start does this automatically.*
+> ***Note:***
+> - ***If you modify any files, you will have to rebuild the project.***
+> - ***After pulling from git, you will have to rebuild the project.***
+>
+> ***npm start does this automatically.***
 
 ---
 
@@ -128,6 +141,14 @@ Options:
   * OPTIONAL (default: false)
   * This is useful to easily test the new distribution.json in dev mode on Helios.
   * Tip: Set name to `dev_distribution` when using this option.
+* `--discardOutput` Delete cached output after it is no longer required. May be useful if disk space is limited.
+  * OPTIONAL (default: false)
+* `--invalidateCache` Invalidate and delete existing caches as they are encountered. Requires fresh cache generation.
+  * OPTIONAL (default: false)
+
+#### Notes
+
+As of Forge 1.13, the installer must be run to generate required files. The installer output is cached by default. This is done to speed up subsequent builds and allow Nebula to be run as a CI job. Options are provided to discard installer output (no caching) and invalidate caches (delete cached output and require fresh generation). To invalidate only a single version cache, manually delete the cached folder.
 
 >
 > Example Usage
@@ -263,7 +284,9 @@ Sample:
 }
 ```
 
-Untracked files is optional. MD5 hashes will not be generated for files matching the provided glob patterns.
+#### Untracked Files
+
+Untracked files is optional. MD5 hashes will not be generated for files matching the provided glob patterns. The launcher will not validate/update files without MD5 hashes.
 
 ```json
 {

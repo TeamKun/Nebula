@@ -1,7 +1,7 @@
 import { lstat, mkdirs, pathExists, readdir, readFile, writeFile } from 'fs-extra'
 import { Server, Module } from 'helios-distribution-types'
 import { dirname, join, resolve as resolvePath } from 'path'
-import { resolve as resolveUrl } from 'url'
+import { URL } from 'url'
 import { VersionSegmentedRegistry } from '../../util/VersionSegmentedRegistry'
 import { ServerMeta, getDefaultServerMeta, ServerMetaOptions, UntrackedFilesOption } from '../../model/nebula/servermeta'
 import { BaseModelStructure } from './BaseModel.struct'
@@ -18,7 +18,9 @@ export class ServerStructure extends BaseModelStructure<Server> {
 
     constructor(
         absoluteRoot: string,
-        baseUrl: string
+        baseUrl: string,
+        private discardOutput: boolean,
+        private invalidateCache: boolean
     ) {
         super(absoluteRoot, '', 'servers', baseUrl)
     }
@@ -98,6 +100,8 @@ export class ServerStructure extends BaseModelStructure<Server> {
             const relativeServerRoot = join(this.relativeRoot, file)
             if ((await lstat(absoluteServerRoot)).isDirectory()) {
 
+                this.logger.info(`Beginning processing of ${file}.`)
+
                 const match = this.ID_REGEX.exec(file)
                 if (match == null) {
                     this.logger.warn(`Server directory ${file} does not match the defined standard.`)
@@ -112,7 +116,7 @@ export class ServerStructure extends BaseModelStructure<Server> {
                 for (const subFile of subFiles) {
                     const caseInsensitive = subFile.toLowerCase()
                     if (caseInsensitive.endsWith('.jpg') || caseInsensitive.endsWith('.png')) {
-                        iconUrl = resolveUrl(this.baseUrl, join(relativeServerRoot, subFile))
+                        iconUrl = new URL(join(relativeServerRoot, subFile), this.baseUrl).toString()
                     }
                 }
 
@@ -133,7 +137,9 @@ export class ServerStructure extends BaseModelStructure<Server> {
                         serverMeta.forge.version,
                         dirname(this.containerDirectory),
                         '',
-                        this.baseUrl
+                        this.baseUrl,
+                        this.discardOutput,
+                        this.invalidateCache
                     )
 
                     // Resolve forge

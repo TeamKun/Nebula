@@ -25,6 +25,9 @@ export abstract class ModuleStructure extends BaseModelStructure<Module> {
 
     private readonly crudeRegex = /(.+?)-(.+).[jJ][aA][rR]/
     protected readonly DEFAULT_VERSION = '0.0.0'
+    protected readonly FILE_NAME_BLACKLIST = [
+        '.gitkeep'
+    ]
 
     protected untrackedFilePatterns: string[]          // List of glob patterns. 
     protected claritasResult!: ClaritasResult
@@ -88,10 +91,10 @@ export abstract class ModuleStructure extends BaseModelStructure<Module> {
         return null
     }
 
-    protected async abstract getModuleId(name: string, path: string): Promise<string>
-    protected async abstract getModuleName(name: string, path: string): Promise<string>
-    protected async abstract getModuleUrl(name: string, path: string, stats: Stats): Promise<string>
-    protected async abstract getModulePath(name: string, path: string, stats: Stats): Promise<string | null>
+    protected abstract getModuleId(name: string, path: string): Promise<string>
+    protected abstract getModuleName(name: string, path: string): Promise<string>
+    protected abstract getModuleUrl(name: string, path: string, stats: Stats): Promise<string>
+    protected abstract getModulePath(name: string, path: string, stats: Stats): Promise<string | null>
 
     protected async parseModule(file: string, filePath: string, stats: Stats): Promise<Module> {
 
@@ -136,8 +139,10 @@ export abstract class ModuleStructure extends BaseModelStructure<Module> {
                 const filePath = resolve(scanDirectory, file)
                 const stats = await lstat(filePath)
                 if (stats.isFile()) {
-                    if(this.filter == null || this.filter(file, filePath, stats)) {
-                        moduleCandidates.push({file, filePath, stats})
+                    if(!this.FILE_NAME_BLACKLIST.includes(file)) {
+                        if(this.filter == null || this.filter(file, filePath, stats)) {
+                            moduleCandidates.push({file, filePath, stats})
+                        }
                     }
                 }
             }
