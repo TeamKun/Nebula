@@ -4,7 +4,7 @@ import { LoggerUtil } from '../../../util/LoggerUtil'
 import { VersionUtil } from '../../../util/versionutil'
 import { Module, Type } from 'helios-distribution-types'
 import { LibRepoStructure } from '../../../structure/repo/LibRepo.struct'
-import { pathExists, remove, mkdirs, copy, writeFile, readFile, lstat, writeJson } from 'fs-extra'
+import { pathExists, remove, mkdirs, copy, writeFile, readFile, lstat, writeJson, exists } from 'fs-extra'
 import { join, basename, dirname } from 'path'
 import { spawn } from 'child_process'
 import { JavaUtil } from '../../../util/java/javautil'
@@ -19,6 +19,7 @@ interface GeneratedFile {
     version: string
     classifiers: string[] | [undefined]
     skipIfNotPresent?: boolean
+    classpath?: boolean
 }
 
 export class ForgeGradle3Adapter extends ForgeResolver {
@@ -51,6 +52,9 @@ export class ForgeGradle3Adapter extends ForgeResolver {
     }
 
     private configure(): void {
+
+        const is117OrGreater = this.minecraftVersion.getMinor() >= 17
+
         // Configure for 13, 14, 15, 16, 17, 18, 19, 20
         if(VersionUtil.isVersionAcceptable(this.minecraftVersion, [13, 14, 15, 16, 17, 18, 19, 20])) {
 
@@ -63,14 +67,16 @@ export class ForgeGradle3Adapter extends ForgeResolver {
                     group: LibRepoStructure.FORGE_GROUP,
                     artifact: LibRepoStructure.FORGE_ARTIFACT,
                     version: this.artifactVersion,
-                    classifiers: ['universal']
+                    classifiers: ['universal'],
+                    classpath: !is117OrGreater
                 },
                 {
                     name: 'client jar',
                     group: LibRepoStructure.FORGE_GROUP,
                     artifact: LibRepoStructure.FORGE_ARTIFACT,
                     version: this.artifactVersion,
-                    classifiers: ['client']
+                    classifiers: ['client'],
+                    classpath: !is117OrGreater
                 },
                 {
                     name: 'client data',
@@ -78,14 +84,16 @@ export class ForgeGradle3Adapter extends ForgeResolver {
                     artifact: LibRepoStructure.MINECRAFT_CLIENT_ARTIFACT,
                     version: this.minecraftVersion.toString(),
                     classifiers: ['data'],
-                    skipIfNotPresent: true
+                    skipIfNotPresent: true,
+                    classpath: !is117OrGreater
                 },
                 {
                     name: 'client srg',
                     group: LibRepoStructure.MINECRAFT_GROUP,
                     artifact: LibRepoStructure.MINECRAFT_CLIENT_ARTIFACT,
                     version: mcpUnifiedVersion,
-                    classifiers: ['srg']
+                    classifiers: ['srg'],
+                    classpath: !is117OrGreater
                 }
             ]
             this.wildcardsInUse = [
@@ -107,7 +115,7 @@ export class ForgeGradle3Adapter extends ForgeResolver {
                 )
             }
 
-            if(VersionUtil.isVersionAcceptable(this.minecraftVersion, [17])) {
+            if(VersionUtil.isVersionAcceptable(this.minecraftVersion, [17, 18, 19])) {
 
                 // Added in 1.17+
 
@@ -130,6 +138,21 @@ export class ForgeGradle3Adapter extends ForgeResolver {
                         name: 'mclanguage',
                         group: LibRepoStructure.FORGE_GROUP,
                         artifact: LibRepoStructure.MCLANGUAGE_ARTIFACT,
+                        version: this.artifactVersion,
+                        classifiers: [undefined]
+                    }
+                )
+            }
+
+            if (VersionUtil.isVersionAcceptable(this.minecraftVersion, [18, 19])) {
+
+                // Added in 1.18+
+
+                this.generatedFiles.unshift(
+                    {
+                        name: 'lowcodelanguage',
+                        group: LibRepoStructure.FORGE_GROUP,
+                        artifact: LibRepoStructure.LOWCODELANGUAGE_ARTIFACT,
                         version: this.artifactVersion,
                         classifiers: [undefined]
                     }
@@ -175,7 +198,8 @@ export class ForgeGradle3Adapter extends ForgeResolver {
                         classifiers: [
                             'slim',
                             'slim-stable'
-                        ]
+                        ],
+                        classpath: !is117OrGreater
                     },
                     {
                         name: 'client extra',
@@ -185,7 +209,8 @@ export class ForgeGradle3Adapter extends ForgeResolver {
                         classifiers: [
                             'extra',
                             'extra-stable'
-                        ]
+                        ],
+                        classpath: !is117OrGreater
                     }
                 )
 
@@ -308,6 +333,8 @@ export class ForgeGradle3Adapter extends ForgeResolver {
             ForgeGradle3Adapter.logger.debug('Installer finished, beginning processing..')
         }
 
+        await this.verifyInstallerRan(installerOutputDir)
+
         ForgeGradle3Adapter.logger.debug('Processing Version Manifest')
         const versionManifestTuple = await this.processVersionManifest(installerOutputDir)
         const versionManifest = versionManifestTuple[0] as VersionManifestFG3
@@ -333,10 +360,24 @@ export class ForgeGradle3Adapter extends ForgeResolver {
 
     }
 
-    private async processVersionManifest(installerOutputDir: string): Promise<[VersionManifestFG3, Module]> {
+    private getVersionManifestPath(installerOutputDir: string): string {
         const versionRepo = this.repoStructure.getVersionRepoStruct()
         const versionName = versionRepo.getFileName(this.minecraftVersion, this.forgeVersion)
-        const versionManifestPath = join(installerOutputDir, 'versions', versionName, `${versionName}.json`)
+        return join(installerOutputDir, 'versions', versionName, `${versionName}.json`)
+    }
+
+    private async verifyInstallerRan(installerOutputDir: string): Promise<void> {
+        const versionManifestPath = this.getVersionManifestPath(installerOutputDir)
+
+        if(!await exists(versionManifestPath)) {
+            await remove(installerOutputDir)
+            throw new Error(`Forge was either not installed or installed to the wrong location. When the forge installer opens, you MUST set the installation directory to ${installerOutputDir}`)
+        }
+    }
+
+    private async processVersionManifest(installerOutputDir: string): Promise<[VersionManifestFG3, Module]> {
+        const versionRepo = this.repoStructure.getVersionRepoStruct()
+        const versionManifestPath = this.getVersionManifestPath(installerOutputDir)
 
         const versionManifestBuf = await readFile(versionManifestPath)
         const versionManifest = JSON.parse(versionManifestBuf.toString()) as VersionManifestFG3
@@ -416,6 +457,7 @@ export class ForgeGradle3Adapter extends ForgeResolver {
                         ),
                         name: `Minecraft Forge (${entry.name})`,
                         type: Type.Library,
+                        classpath: entry.classpath ?? true,
                         artifact: this.generateArtifact(
                             await readFile(targetLocalPath),
                             await lstat(targetLocalPath),
